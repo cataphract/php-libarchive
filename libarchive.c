@@ -126,7 +126,12 @@ static zval *entry_oh_get_property_ptr_ptr(
 {
     return NULL; // force engine to fallback on read+write when possible
 }
-static void entry_oh_write_property(
+#if PHP_VERSION_ID < 70400
+typedef void write_prop_ret_t;
+#else
+typedef zval *write_prop_ret_t;
+#endif
+static write_prop_ret_t entry_oh_write_property(
    zval *object, zval *member, zval *value, void **cache_slot)
 {
     entry_object *entry_obj = entry_object_from_zv(object);
@@ -136,7 +141,7 @@ static void entry_oh_write_property(
     struct archive_entry *entry = entry_obj->entry;
     if (entry == NULL) {
         zend_throw_exception(except_ce, "Entry not initialized", -1);
-        return;
+        goto end;
     }
     if (zend_string_equals_literal(member_str, "pathname")) {
         zend_string *val = zval_get_string(value);
@@ -147,6 +152,11 @@ static void entry_oh_write_property(
                 except_ce, -1,"Not a known writable property: %s",
                 member_str->val);
     }
+
+end:
+#if PHP_VERSION_ID >= 70400
+    return value;
+#endif
 }
 
 ZEND_BEGIN_ARG_INFO(arginfo_entry___construct, 0)
@@ -384,6 +394,7 @@ typedef struct _arch_iterator {
 } arch_iterator;
 
 static void arch_it_populate_with_next(arch_iterator *it);
+static zend_object_iterator_funcs arch_it_funcs;
 static zend_object_iterator *arch_ce_get_iterator(
     zend_class_entry *ce, zval *object, int by_ref)
 {
@@ -556,7 +567,7 @@ static PHP_MINIT_FUNCTION(libarchive)
         INIT_CLASS_ENTRY(entry_temp_ce, "libarchive\\Entry", entry_functions);
         entry_ce = zend_register_internal_class(&entry_temp_ce);
     }
-    entry_ce->ce_flags = ZEND_ACC_FINAL;
+    entry_ce->ce_flags |= ZEND_ACC_FINAL;
     entry_ce->clone = NULL;
     entry_ce->constructor = NULL; /* disallow instantiation with new */
     entry_ce->create_object = entry_ce_create_object;
