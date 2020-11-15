@@ -156,6 +156,8 @@ static write_prop_ret_t entry_oh_write_property(
 end:
 #if PHP_VERSION_ID >= 70400
     return value;
+#else
+	;
 #endif
 }
 
