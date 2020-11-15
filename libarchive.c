@@ -530,7 +530,7 @@ static PHP_MINIT_FUNCTION(libarchive)
     {
         zend_class_entry except_temp_ce;
         zend_function_entry entries[] = {PHP_FE_END};
-        INIT_CLASS_ENTRY(except_temp_ce, "libarchive\\RarException", entries);
+        INIT_CLASS_ENTRY(except_temp_ce, "libarchive\\Exception", entries);
         except_ce = zend_register_internal_class_ex(
             &except_temp_ce, zend_exception_get_default());
     }
