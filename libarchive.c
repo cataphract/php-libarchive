@@ -485,7 +485,6 @@ static void arch_it_dtor(zend_object_iterator *iter)
     arch_iterator *it = (arch_iterator *)iter;
 
     arch_it_invalidate_current((zend_object_iterator *) it);
-    arch_object *arch_obj = arch_object_from_zv(&it->parent.data);
     zval_ptr_dtor(&it->parent.data); // reduce refcount on archive
     it->finished = true;
 }
@@ -596,6 +595,8 @@ static PHP_MINIT_FUNCTION(libarchive)
    REGISTER_EXTRACT_CONST(HFS_COMPRESSION_FORCED);
    REGISTER_EXTRACT_CONST(SECURE_NOABSOLUTEPATHS);
    REGISTER_EXTRACT_CONST(CLEAR_NOCHANGE_FFLAGS);
+
+   return SUCCESS;
 }
 
 /* {{{ libarchive_module_entry

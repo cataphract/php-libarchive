@@ -36,8 +36,8 @@ static inline struct archive *nullable arch_from_stream(php_stream *stream)
     if (!arch) {
         php_error_docref(NULL, E_WARNING,
                          "libarchive handle has been disposed of already");
-        return NULL;
     }
+    return arch;
 }
 
 static stream_ret_t php_arch_ops_read(php_stream *stream, char *buf, size_t count)

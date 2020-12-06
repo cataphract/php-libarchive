@@ -34,6 +34,26 @@ if test "$PHP_LIBARCHIVE" != "no"; then
     -L$LIBARCHIVE_DIR/$PHP_LIBDIR
   ])
 
+  cflags_null=""
+  AC_DEFUN([CC_FLAG_CHECK],
+  [
+  ac_saved_cflags="$CFLAGS"
+  CFLAGS="$1 -Werror"
+  flag_to_add=m4_default([$2],[$1])
+  AC_MSG_CHECKING([whether the C compiler supports $1])
+  AC_COMPILE_IFELSE(
+    [AC_LANG_PROGRAM([])],
+    [AC_MSG_RESULT([yes])]
+    [cflags_null="$cflags_null $flag_to_add"],
+    [AC_MSG_RESULT([no])]
+  )
+  CFLAGS="$ac_saved_cflags"
+  ])
+  CC_FLAG_CHECK([-Wnullability-completeness], [-Wno-nullability-completeness])
+
+  extra_cflags="$cflags_null -fvisibility=hidden"
+  echo "EXTRA_CFLAGS := \$(EXTRA_CFLAGS) $extra_cflags" >> Makefile.fragments
+
   PHP_SUBST(ARCHIVE_SHARED_LIBADD)
-  PHP_NEW_EXTENSION(archive, libarchive.c stream.c, $ext_shared,,-fvisibility=hidden)
+  PHP_NEW_EXTENSION(archive, libarchive.c stream.c, $ext_shared,,-Wall)
 fi
