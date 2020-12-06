@@ -16,6 +16,14 @@
 #include "stream.h"
 #include <stdbool.h>
 
+#if PHP_MAJOR_VERSION >= 8
+typedef zend_object handler_this_t;
+typedef zend_string handler_member_t;
+#else
+typedef zval handler_this_t;
+typedef zval handler_member_t;
+#endif
+
 /* {{{ PHP_MINFO_FUNCTION
  */
 static PHP_MINFO_FUNCTION(libarchive)
@@ -45,6 +53,14 @@ static inline entry_object *entry_object_from_zv(const zval *zv)
 {
     return entry_object_fetch(Z_OBJ_P(zv));
 }
+static inline entry_object *entry_object_from_handler_this(handler_this_t *obj)
+{
+#if PHP_MAJOR_VERSION >= 8
+    return entry_object_fetch(obj);
+#else
+    return entry_object_from_zv(obj);
+#endif
+}
 
 static zend_object *entry_ce_create_object(zend_class_entry *ce)
 {
@@ -69,15 +85,22 @@ static void entry_oh_free_obj(zend_object *zobj)
     ZVAL_UNDEF(&obj->archive_obj);
     zend_object_std_dtor(zobj);
 }
+#if PHP_MAJOR_VERSION < 8
 static inline void zend_string_release_p(zend_string **p) {
     zend_string_release(*p);
 }
-static zval *entry_oh_read_property(
-    zval *object, zval *member, int type, void **cache_slot, zval *rv)
+#endif
+static zval *entry_oh_read_property(handler_this_t *object,
+                                    handler_member_t *member, int type,
+                                    void **cache_slot, zval *rv)
 {
-    entry_object *entry_obj = entry_object_from_zv(object);
+    entry_object *entry_obj = entry_object_from_handler_this(object);
+#if PHP_MAJOR_VERSION >= 8
+    zend_string *member_str = member;
+#else
     zend_string *__attribute__((__cleanup__(zend_string_release_p))) member_str =
             zval_get_string(member);
+#endif
 
     struct archive_entry *entry = entry_obj->entry;
     if (entry == NULL) {
@@ -121,8 +144,9 @@ static zval *entry_oh_read_property(
         return &EG(uninitialized_zval);
     }
 }
-static zval *entry_oh_get_property_ptr_ptr(
-   zval *object, zval *member, int type, void **cache_slot)
+static zval *entry_oh_get_property_ptr_ptr(handler_this_t *object,
+                                           handler_member_t *member, int type,
+                                           void **cache_slot)
 {
     return NULL; // force engine to fallback on read+write when possible
 }
@@ -131,12 +155,18 @@ typedef void write_prop_ret_t;
 #else
 typedef zval *write_prop_ret_t;
 #endif
-static write_prop_ret_t entry_oh_write_property(
-   zval *object, zval *member, zval *value, void **cache_slot)
+static write_prop_ret_t entry_oh_write_property(handler_this_t *object,
+                                                handler_member_t *member,
+                                                zval *value,
+                                                void **cache_slot)
 {
-    entry_object *entry_obj = entry_object_from_zv(object);
-    zend_string *__attribute__((__cleanup__(zend_string_release_p))) member_str =
-            zval_get_string(member);
+    entry_object *entry_obj = entry_object_from_handler_this(object);
+#if PHP_MAJOR_VERSION >= 8
+    zend_string *member_str = member;
+#else
+    zend_string *__attribute__((__cleanup__(zend_string_release_p)))
+        member_str = zval_get_string(member);
+#endif
 
     struct archive_entry *entry = entry_obj->entry;
     if (entry == NULL) {
@@ -379,10 +409,24 @@ static bool copy_data(struct archive *ar, struct archive *aw)
     }
 }
 
+#if PHP_MAJOR_VERSION >= 8
+ZEND_BEGIN_ARG_INFO(arginfo_arch_get_iterator, 0)
+ZEND_END_ARG_INFO();
+static PHP_METHOD(Archive, getIterator)
+{
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    zend_create_internal_iterator_zval(return_value, ZEND_THIS);
+}
+#endif
+
 static const zend_function_entry arch_functions[] = {
     PHP_ME(Archive, __construct, arginfo_arch___construct, ZEND_ACC_PUBLIC)
     PHP_ME(Archive, extractCurrent, arginfo_arch_extract, ZEND_ACC_PUBLIC)
     PHP_ME(Archive, currentEntryStream, arginfo_arch_cur_entry_stream, ZEND_ACC_PUBLIC)
+#if PHP_MAJOR_VERSION >= 8
+    PHP_ME(Archive, getIterator, arginfo_arch_get_iterator, ZEND_ACC_PUBLIC)
+#endif
     PHP_FE_END
 };
 
@@ -552,7 +596,11 @@ static PHP_MINIT_FUNCTION(libarchive)
 #if PHP_VERSION_ID < 70300
     arch_ce->iterator_funcs.funcs = &arch_it_funcs;
 #endif
+#if PHP_MAJOR_VERSION >= 8
+    zend_class_implements(arch_ce, 1, zend_ce_aggregate);
+#else
     zend_class_implements(arch_ce, 1, zend_ce_traversable);
+#endif
 
     // initialize libarchive\Entry
     entry_oh = *zend_get_std_object_handlers();
