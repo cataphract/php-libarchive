@@ -30,6 +30,9 @@ static PHP_MINFO_FUNCTION(libarchive)
 {
     php_info_print_table_start();
     php_info_print_table_header(2, "libarchive support", "enabled");
+    php_info_print_table_row(2, "archive extension version", PHP_LIBARCHIVE_VERSION);
+    php_info_print_table_row(2, "libarchive version", ARCHIVE_VERSION_ONLY_STRING);
+    php_info_print_table_row(2, "libarchive details", archive_version_details());
     php_info_print_table_end();
 }
 /* }}} */
