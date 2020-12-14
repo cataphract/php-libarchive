@@ -51,9 +51,8 @@ if test "$PHP_LIBARCHIVE" != "no"; then
   ])
   CC_FLAG_CHECK([-Wnullability-completeness], [-Wno-nullability-completeness])
 
-  extra_cflags="$cflags_null -fvisibility=hidden"
-  echo "EXTRA_CFLAGS := \$(EXTRA_CFLAGS) $extra_cflags" >> Makefile.fragments
+  extra_cflags="-Wall $cflags_null -fvisibility=hidden"
 
   PHP_SUBST(ARCHIVE_SHARED_LIBADD)
-  PHP_NEW_EXTENSION(archive, libarchive.c stream.c, $ext_shared,,-Wall)
+  PHP_NEW_EXTENSION(archive, libarchive.c stream.c, $ext_shared,,$extra_cflags)
 fi
