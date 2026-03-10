@@ -1,0 +1,117 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-dev-version:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PHP_LIBARCHIVE_VERSION ends in -dev
+        run: |
+          HEADER_VERSION=$(grep -oP '(?<=#define PHP_LIBARCHIVE_VERSION ")[^"]+' php_libarchive.h)
+          echo "Header version: $HEADER_VERSION"
+          if [[ "$HEADER_VERSION" != *-dev ]]; then
+            echo "ERROR: PHP_LIBARCHIVE_VERSION ($HEADER_VERSION) does not end in -dev on master"
+            exit 1
+          fi
+
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: set-matrix
+        run: |
+          python3 <<'EOF'
+          import yaml, json, os
+          with open('.github/docker-image-shas.yml') as f:
+              data = yaml.safe_load(f)
+          image = 'datadog/dd-appsec-php-ci'
+          includes = []
+          for tag, sha in data[image].items():
+              # tag: "php-8.0-debug" or "php-8.0-release-zts"
+              ver, variant = tag[len('php-'):].split('-', 1)
+              includes.append({'php': ver, 'variant': variant, 'image_sha': sha})
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('matrix=' + json.dumps({'include': includes}) + '\n')
+          EOF
+
+  linux:
+    name: PHP ${{ matrix.php }} (${{ matrix.variant }})
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+    container:
+      image: datadog/dd-appsec-php-ci@${{ matrix.image_sha }}
+      options: --user root
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and test
+        run: bash .github/scripts/build-and-test.sh
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-php${{ matrix.php }}-${{ matrix.variant }}
+          path: report.xml
+
+  windows:
+    name: Windows PHP ${{ matrix.php }} ${{ matrix.ts }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.3'
+            ts: ts
+            arch: x64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache vcpkg packages
+        id: vcpkg-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed\x64-windows-static-md
+          key: vcpkg-x64-windows-static-md-libarchive-v1
+
+      - name: Install libarchive via vcpkg
+        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $tripletDir = "$env:RUNNER_TEMP\vcpkg-triplets"
+          New-Item -ItemType Directory -Force -Path $tripletDir | Out-Null
+          Set-Content "$tripletDir\x64-windows-static-md.cmake" `
+            "set(VCPKG_TARGET_ARCHITECTURE x64)`nset(VCPKG_CRT_LINKAGE dynamic)`nset(VCPKG_LIBRARY_LINKAGE static)`nset(VCPKG_BUILD_TYPE release)"
+          C:\vcpkg\vcpkg.exe install libarchive `
+            --triplet x64-windows-static-md `
+            --overlay-triplets="$tripletDir" `
+            --vcpkg-root C:\vcpkg
+
+      - name: Build and test
+        uses: php/php-windows-builder/extension@v1
+        with:
+          php-version: ${{ matrix.php }}
+          arch: ${{ matrix.arch }}
+          ts: ${{ matrix.ts }}
+          args: --with-libarchive=C:\vcpkg\installed\x64-windows-static-md
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-windows-php${{ matrix.php }}-${{ matrix.ts }}
+          path: '*.xml'

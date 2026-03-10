@@ -3,9 +3,11 @@
 function get_temp_dir() {
 	static $dir;
 	if (!$dir) {
-		$dir = tempnam(__DIR__, '.tmp');
-		unlink($dir);
-		mkdir($dir);
+		$dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR
+			. 'phpla_' . getmypid() . '_' . uniqid();
+		if (!mkdir($dir, 0700)) {
+			exit("Could not create temp dir: $dir\n");
+		}
 
 		register_shutdown_function(function() use ($dir) {
 			$files = new RecursiveIteratorIterator(
