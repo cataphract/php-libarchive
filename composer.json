@@ -1,0 +1,30 @@
+{
+    "name": "cataphract/libarchive",
+    "type": "php-ext",
+    "description": "PHP extension for reading and writing archives via libarchive",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Gustavo Lopes",
+            "email": "cataphract@php.net",
+            "role": "lead"
+        }
+    ],
+    "require": {
+        "php": "^8.0"
+    },
+    "support": {
+        "source": "https://github.com/cataphract/php-libarchive"
+    },
+    "php-ext": {
+        "extension-name": "archive",
+        "download-url-method": ["pre-packaged-binary", "composer-default"],
+        "configure-options": [
+            {
+                "name": "with-libarchive",
+                "description": "Path to libarchive installation",
+                "needs-value": true
+            }
+        ]
+    }
+}

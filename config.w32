@@ -1,0 +1,38 @@
+// vim:ft=javascript
+
+ARG_WITH("libarchive", "libarchive support", "no");
+
+if (PHP_LIBARCHIVE != "no") {
+	if (CHECK_LIB("archive.lib", "archive", PHP_LIBARCHIVE) &&
+		CHECK_HEADER_ADD_INCLUDE("archive.h", "CFLAGS_ARCHIVE",
+			PHP_LIBARCHIVE + "/include;" + PHP_PHP_BUILD + "/include")) {
+
+		EXTENSION("archive", "libarchive.c stream.c", true, "/DLIBARCHIVE_STATIC");
+
+		// Always-needed Windows system libs.
+		var libs = "bcrypt.lib xmllite.lib crypt32.lib ws2_32.lib";
+
+		// Conditionally link optional compression/crypto dep static libs
+		// that may have been bundled into the install prefix (e.g. from vcpkg).
+		var la_lib = PHP_LIBARCHIVE + "\\lib\\";
+		var optional = [
+			"liblzma.lib", "lzma.lib",
+			"zlib.lib",
+			"bz2.lib",
+			"lz4.lib",
+			"zstd.lib", "zstd_static.lib",
+			"libssl.lib", "libcrypto.lib",
+		];
+		for (var i = 0; i < optional.length; i++) {
+			if (FSO.FileExists(la_lib + optional[i])) {
+				libs += " " + optional[i];
+			}
+		}
+		ADD_FLAG("LIBS_ARCHIVE", libs);
+
+		AC_DEFINE("HAVE_LIBARCHIVE", 1, "Libarchive support");
+	} else {
+		WARNING("libarchive: library not found");
+		PHP_LIBARCHIVE = "no";
+	}
+}
