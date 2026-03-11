@@ -171,7 +171,7 @@ static zend_object *arch_ce_create_object(zend_class_entry *ce)
     arch_object *zobj =
             emalloc(sizeof(*zobj) + zend_object_properties_size(ce));
 
-    zobj->file_location = NULL;
+    zobj->source_kind = ARCH_SOURCE_NONE;
     zobj->archive = NULL;
     zobj->arch_disk = NULL;
     zobj->write_disk_options = 0;
@@ -185,10 +185,17 @@ static zend_object *arch_ce_create_object(zend_class_entry *ce)
 static void arch_oh_free_obj(zend_object *zobj)
 {
     arch_object *obj = arch_object_fetch(zobj);
-    if (obj->file_location) {
-        zend_string_release(obj->file_location);
-        obj->file_location = NULL;
+    switch (obj->source_kind) {
+        case ARCH_SOURCE_FILE:
+            zend_string_release(obj->source.file_location);
+            break;
+        case ARCH_SOURCE_STREAM:
+            zval_ptr_dtor(&obj->source.stream_zv);
+            break;
+        case ARCH_SOURCE_NONE:
+            break;
     }
+    obj->source_kind = ARCH_SOURCE_NONE;
     if (obj->archive) {
         archive_read_close(obj->archive);
         obj->archive = NULL;
@@ -211,45 +218,99 @@ PHP_METHOD(libarchive_Archive, __construct)
     }
 
     arch_object *arch_obj = arch_object_from_zv(getThis());
-    arch_obj->file_location = zend_string_copy(file);
+    arch_obj->source_kind = ARCH_SOURCE_FILE;
+    arch_obj->source.file_location = zend_string_copy(file);
     arch_obj->write_disk_options = (int)flags;
 }
+
+static bool arch_obj_open_read_stream(arch_object *arch_obj);
 
 static bool arch_obj_open_read(arch_object *arch_obj)
 {
     php_stream *stream = php_stream_open_wrapper(
-            arch_obj->file_location->val, "rb",
+            arch_obj->source.file_location->val, "rb",
             REPORT_ERRORS | STREAM_WILL_CAST | PHP_STREAM_PREFER_STDIO |
                     STREAM_MUST_SEEK,
             NULL);
 
     if (!stream) {
         zend_throw_exception_ex(except_ce, -1, "Could not open %s",
-                                arch_obj->file_location->val);
+                                arch_obj->source.file_location->val);
         return false;
     }
 
     int fd;
-    int res = php_stream_cast(stream, PHP_STREAM_AS_FD, (void **)&fd, 0);
+    if (php_stream_can_cast(stream, PHP_STREAM_AS_FD) == SUCCESS &&
+            php_stream_cast(stream, PHP_STREAM_AS_FD, (void **)&fd, 0) == SUCCESS) {
+        arch_obj->archive = archive_read_new();
+        archive_read_support_filter_all(arch_obj->archive);
+        archive_read_support_format_all(arch_obj->archive);
+        int res = archive_read_open_fd(arch_obj->archive, fd, 10240);
+        if (res != ARCHIVE_OK) {
+            zend_throw_exception_ex(
+                    except_ce, archive_errno(arch_obj->archive),
+                    "Could not open archive from file descriptor: %s",
+                    archive_error_string(arch_obj->archive));
+            return false;
+        }
+    } else {
+        /* FD cast not supported by this stream wrapper; fall back to FILE*.
+         * Switch the source so arch_obj_open_read_stream can take over and
+         * the stream resource is kept alive for the lifetime of the archive. */
+        zend_string_release(arch_obj->source.file_location);
+        arch_obj->source_kind = ARCH_SOURCE_STREAM;
+        php_stream_to_zval(stream, &arch_obj->source.stream_zv);
+        return arch_obj_open_read_stream(arch_obj);
+    }
+
+    return true;
+}
+
+static bool arch_obj_open_read_stream(arch_object *arch_obj)
+{
+    php_stream *stream;
+    php_stream_from_zval_no_verify(stream, &arch_obj->source.stream_zv);
+    if (!stream) {
+        zend_throw_exception(except_ce, "Invalid stream resource", -1);
+        return false;
+    }
+
+    FILE *fp;
+    int res = php_stream_cast(stream, PHP_STREAM_AS_STDIO, (void **)&fp, REPORT_ERRORS);
     if (res != SUCCESS) {
-        zend_throw_exception_ex(except_ce, -1, "Could not cast stream for %s",
-                                arch_obj->file_location->val);
+        zend_throw_exception(except_ce, "Could not cast stream to FILE*", -1);
         return false;
     }
 
     arch_obj->archive = archive_read_new();
     archive_read_support_filter_all(arch_obj->archive);
     archive_read_support_format_all(arch_obj->archive);
-    res = archive_read_open_fd(arch_obj->archive, fd, 10240);
+    res = archive_read_open_FILE(arch_obj->archive, fp);
     if (res != ARCHIVE_OK) {
         zend_throw_exception_ex(
                 except_ce, archive_errno(arch_obj->archive),
-                "Could not open archive from file descriptor: %s",
+                "Could not open archive from stream: %s",
                 archive_error_string(arch_obj->archive));
         return false;
     }
 
     return true;
+}
+
+PHP_METHOD(libarchive_Archive, fromStream)
+{
+    zval *stream_zv;
+    zend_long flags = 0;
+    if (zend_parse_parameters(ZEND_NUM_ARGS(), "r|l", &stream_zv, &flags) ==
+        FAILURE) {
+        return;
+    }
+
+    object_init_ex(return_value, arch_ce);
+    arch_object *arch_obj = arch_object_from_zv(return_value);
+    arch_obj->source_kind = ARCH_SOURCE_STREAM;
+    ZVAL_COPY(&arch_obj->source.stream_zv, stream_zv);
+    arch_obj->write_disk_options = (int)flags;
 }
 
 PHP_METHOD(libarchive_Archive, currentEntryStream)
@@ -408,7 +469,7 @@ static zend_object_iterator *arch_ce_get_iterator(zend_class_entry *ce,
     }
 
     arch_object *arch_obj = arch_object_from_zv(object);
-    if (arch_obj->file_location == NULL) {
+    if (arch_obj->source_kind == ARCH_SOURCE_NONE) {
         php_error_docref(
                 NULL, E_ERROR,
                 "The Archive object has not been properly constructed");
@@ -419,8 +480,14 @@ static zend_object_iterator *arch_ce_get_iterator(zend_class_entry *ce,
                              -1);
         return NULL;
     }
-    if (!arch_obj_open_read(arch_obj)) {
-        return NULL;
+    if (arch_obj->source_kind == ARCH_SOURCE_FILE) {
+        if (!arch_obj_open_read(arch_obj)) {
+            return NULL;
+        }
+    } else {
+        if (!arch_obj_open_read_stream(arch_obj)) {
+            return NULL;
+        }
     }
 
     arch_iterator *it = emalloc(sizeof *it);

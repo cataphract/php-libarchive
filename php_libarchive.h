@@ -32,8 +32,18 @@ ZEND_TSRMLS_CACHE_EXTERN()
 #define nullable _Nullable
 #define unspecnull _Null_unspecified
 
+typedef enum {
+    ARCH_SOURCE_NONE,
+    ARCH_SOURCE_FILE,
+    ARCH_SOURCE_STREAM,
+} arch_source_kind;
+
 typedef struct _arch_object {
-    zend_string *nullable file_location;
+    arch_source_kind source_kind;
+    union {
+        zend_string *file_location; /* ARCH_SOURCE_FILE */
+        zval stream_zv;             /* ARCH_SOURCE_STREAM */
+    } source;
     struct archive *nullable archive;
     struct archive *nullable arch_disk;
     int write_disk_options;

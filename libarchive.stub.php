@@ -286,6 +286,22 @@ namespace libarchive {
         public function __construct(string $file, int $flags = 0) {}
 
         /**
+         * Create an Archive reader from an already-open PHP stream.
+         *
+         * This method does not seek to the beginning of the stream; reading
+         * starts at the current position.
+         *
+         * The stream is cast to a C {@code FILE *} via {@code
+         * php_stream_cast(PHP_STREAM_AS_STDIO)}, which generally succeeds in
+         * Linux via fopencookie.
+         *
+         * @param resource $stream  An open, readable PHP stream.
+         * @param int      $flags   Bitmask of EXTRACT_* constants forwarded to
+         *                          {@see Archive::extractCurrent()}.
+         */
+        public static function fromStream(mixed $stream, int $flags = 0): static {}
+
+        /**
          * Extract the current archive entry to disk.
          *
          * The entry's pathname determines where the file is written.

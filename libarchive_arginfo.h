@@ -1,11 +1,16 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: d41c11ce5a6a024796710fff87e0402e77446549 */
+ * Stub hash: e2b78feab80afeed324b595b8e65cfecc5be6d95 */
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_class_libarchive_Entry___construct, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_class_libarchive_Archive___construct, 0, 0, 1)
 	ZEND_ARG_TYPE_INFO(0, file, IS_STRING, 0)
+	ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, flags, IS_LONG, 0, "0")
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_libarchive_Archive_fromStream, 0, 1, IS_STATIC, 0)
+	ZEND_ARG_TYPE_INFO(0, stream, IS_MIXED, 0)
 	ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, flags, IS_LONG, 0, "0")
 ZEND_END_ARG_INFO()
 
@@ -19,19 +24,29 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_class_libarchive_Archive_getIterator, 0, 0, Traversable, 0)
 ZEND_END_ARG_INFO()
 
+
 ZEND_METHOD(libarchive_Entry, __construct);
 ZEND_METHOD(libarchive_Archive, __construct);
+ZEND_METHOD(libarchive_Archive, fromStream);
 ZEND_METHOD(libarchive_Archive, extractCurrent);
 ZEND_METHOD(libarchive_Archive, currentEntryStream);
 ZEND_METHOD(libarchive_Archive, getIterator);
+
+
+static const zend_function_entry class_libarchive_Exception_methods[] = {
+	ZEND_FE_END
+};
+
 
 static const zend_function_entry class_libarchive_Entry_methods[] = {
 	ZEND_ME(libarchive_Entry, __construct, arginfo_class_libarchive_Entry___construct, ZEND_ACC_PRIVATE)
 	ZEND_FE_END
 };
 
+
 static const zend_function_entry class_libarchive_Archive_methods[] = {
 	ZEND_ME(libarchive_Archive, __construct, arginfo_class_libarchive_Archive___construct, ZEND_ACC_PUBLIC)
+	ZEND_ME(libarchive_Archive, fromStream, arginfo_class_libarchive_Archive_fromStream, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	ZEND_ME(libarchive_Archive, extractCurrent, arginfo_class_libarchive_Archive_extractCurrent, ZEND_ACC_PUBLIC)
 	ZEND_ME(libarchive_Archive, currentEntryStream, arginfo_class_libarchive_Archive_currentEntryStream, ZEND_ACC_PUBLIC)
 	ZEND_ME(libarchive_Archive, getIterator, arginfo_class_libarchive_Archive_getIterator, ZEND_ACC_PUBLIC)
@@ -64,8 +79,9 @@ static zend_class_entry *register_class_libarchive_Exception(zend_class_entry *c
 {
 	zend_class_entry ce, *class_entry;
 
-	INIT_NS_CLASS_ENTRY(ce, "libarchive", "Exception", NULL);
-	class_entry = zend_register_internal_class_with_flags(&ce, class_entry_Exception, ZEND_ACC_FINAL);
+	INIT_NS_CLASS_ENTRY(ce, "libarchive", "Exception", class_libarchive_Exception_methods);
+	class_entry = zend_register_internal_class_ex(&ce, class_entry_Exception);
+	class_entry->ce_flags |= ZEND_ACC_FINAL;
 
 	return class_entry;
 }
@@ -75,7 +91,8 @@ static zend_class_entry *register_class_libarchive_Entry(void)
 	zend_class_entry ce, *class_entry;
 
 	INIT_NS_CLASS_ENTRY(ce, "libarchive", "Entry", class_libarchive_Entry_methods);
-	class_entry = zend_register_internal_class_with_flags(&ce, NULL, ZEND_ACC_FINAL);
+	class_entry = zend_register_internal_class_ex(&ce, NULL);
+	class_entry->ce_flags |= ZEND_ACC_FINAL;
 
 	return class_entry;
 }
@@ -85,7 +102,8 @@ static zend_class_entry *register_class_libarchive_Archive(zend_class_entry *cla
 	zend_class_entry ce, *class_entry;
 
 	INIT_NS_CLASS_ENTRY(ce, "libarchive", "Archive", class_libarchive_Archive_methods);
-	class_entry = zend_register_internal_class_with_flags(&ce, NULL, ZEND_ACC_FINAL);
+	class_entry = zend_register_internal_class_ex(&ce, NULL);
+	class_entry->ce_flags |= ZEND_ACC_FINAL;
 	zend_class_implements(class_entry, 1, class_entry_IteratorAggregate);
 
 	return class_entry;
