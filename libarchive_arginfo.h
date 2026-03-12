@@ -14,6 +14,10 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_libarchive_Archive_fromStr
 	ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, flags, IS_LONG, 0, "0")
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_libarchive_Archive_withPasswordCallback, 0, 1, IS_STATIC, 0)
+	ZEND_ARG_TYPE_INFO(0, callable, IS_CALLABLE, 0)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_libarchive_Archive_supportFormats, 0, 1, IS_STATIC, 0)
 	ZEND_ARG_VARIADIC_TYPE_INFO(0, formats, IS_LONG, 0)
 ZEND_END_ARG_INFO()
@@ -36,6 +40,7 @@ ZEND_END_ARG_INFO()
 ZEND_METHOD(libarchive_Entry, __construct);
 ZEND_METHOD(libarchive_Archive, __construct);
 ZEND_METHOD(libarchive_Archive, fromStream);
+ZEND_METHOD(libarchive_Archive, withPasswordCallback);
 ZEND_METHOD(libarchive_Archive, supportFormats);
 ZEND_METHOD(libarchive_Archive, supportFilters);
 ZEND_METHOD(libarchive_Archive, extractCurrent);
@@ -57,6 +62,7 @@ static const zend_function_entry class_libarchive_Entry_methods[] = {
 static const zend_function_entry class_libarchive_Archive_methods[] = {
 	ZEND_ME(libarchive_Archive, __construct, arginfo_class_libarchive_Archive___construct, ZEND_ACC_PUBLIC)
 	ZEND_ME(libarchive_Archive, fromStream, arginfo_class_libarchive_Archive_fromStream, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
+	ZEND_ME(libarchive_Archive, withPasswordCallback, arginfo_class_libarchive_Archive_withPasswordCallback, ZEND_ACC_PUBLIC)
 	ZEND_ME(libarchive_Archive, supportFormats, arginfo_class_libarchive_Archive_supportFormats, ZEND_ACC_PUBLIC)
 	ZEND_ME(libarchive_Archive, supportFilters, arginfo_class_libarchive_Archive_supportFilters, ZEND_ACC_PUBLIC)
 	ZEND_ME(libarchive_Archive, extractCurrent, arginfo_class_libarchive_Archive_extractCurrent, ZEND_ACC_PUBLIC)

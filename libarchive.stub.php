@@ -364,6 +364,22 @@ namespace libarchive {
         public static function fromStream(mixed $stream, int $flags = 0): static {}
 
         /**
+         * Set a PHP callable that will be invoked by libarchive whenever a
+         * passphrase is needed to decrypt an entry.
+         *
+         * The callable receives no arguments and must return either a string
+         * (the passphrase) or null to signal that no passphrase is available.
+         * It may be called multiple times if several passphrases need to be
+         * tried.
+         *
+         * Must be called before iteration begins.
+         *
+         * @param callable $callable  Callback with signature {@code function(): ?string}.
+         * @throws Exception          If the archive has already been opened.
+         */
+        public function withPasswordCallback(callable $callable): static {}
+
+        /**
          * Restrict reading to specific archive formats.
          *
          * By default all formats are tried (auto-detect). Calling this method

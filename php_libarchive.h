@@ -53,6 +53,9 @@ typedef struct _arch_object {
     uint32_t filters_count;
     uint32_t entry_generation; /* incremented before each archive_read_next_header2 call */
     la_int64_t current_entry_size; /* archive_entry_size() of the current entry, or -1 if not set */
+    zend_fcall_info password_fci;               /* size == 0 if not set */
+    zend_fcall_info_cache password_fcc;
+    zend_string *nullable password_cb_last_result; /* owns the last passphrase string */
     zend_object parent;
 } arch_object;
 
