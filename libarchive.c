@@ -182,6 +182,9 @@ static zend_object *arch_ce_create_object(zend_class_entry *ce)
     zobj->write_disk_options = 0;
     zobj->entry_generation = 0;
     zobj->current_entry_size = -1;
+    memset(&zobj->password_fci, 0, sizeof(zobj->password_fci));
+    memset(&zobj->password_fcc, 0, sizeof(zobj->password_fcc));
+    zobj->password_cb_last_result = NULL;
     zend_object_std_init(&zobj->parent, ce);
     zobj->parent.handlers = &arch_oh;
 
@@ -220,6 +223,14 @@ static void arch_oh_free_obj(zend_object *zobj)
         (void)archive_write_free(obj->arch_disk);
         obj->arch_disk = NULL;
     }
+    if (obj->password_fci.size != 0) {
+        zval_ptr_dtor(&obj->password_fci.function_name);
+        obj->password_fci.size = 0;
+    }
+    if (obj->password_cb_last_result) {
+        zend_string_release(obj->password_cb_last_result);
+        obj->password_cb_last_result = NULL;
+    }
     zend_object_std_dtor(zobj);
 }
 
@@ -239,6 +250,36 @@ PHP_METHOD(libarchive_Archive, __construct)
 }
 
 static bool arch_obj_open_read_stream(arch_object *arch_obj);
+
+static const char *arch_passphrase_callback(struct archive *a, void *_client_data)
+{
+    (void)a;
+    arch_object *arch_obj = (arch_object *)_client_data;
+
+    zval retval;
+    ZVAL_UNDEF(&retval);
+    arch_obj->password_fci.retval = &retval;
+    arch_obj->password_fci.param_count = 0;
+    arch_obj->password_fci.params = NULL;
+
+    if (zend_call_function(&arch_obj->password_fci, &arch_obj->password_fcc) == FAILURE
+            || Z_TYPE(retval) == IS_UNDEF) {
+        return NULL;
+    }
+
+    if (arch_obj->password_cb_last_result) {
+        zend_string_release(arch_obj->password_cb_last_result);
+        arch_obj->password_cb_last_result = NULL;
+    }
+
+    if (Z_TYPE(retval) == IS_NULL) {
+        return NULL;
+    }
+
+    arch_obj->password_cb_last_result = zval_get_string(&retval);
+    zval_ptr_dtor(&retval);
+    return ZSTR_VAL(arch_obj->password_cb_last_result);
+}
 
 static void arch_obj_setup_support(arch_object *arch_obj)
 {
@@ -277,6 +318,10 @@ static bool arch_obj_open_read(arch_object *arch_obj)
             php_stream_cast(stream, PHP_STREAM_AS_FD, (void **)&fd, 0) == SUCCESS) {
         arch_obj->archive = archive_read_new();
         arch_obj_setup_support(arch_obj);
+        if (arch_obj->password_fci.size != 0) {
+            archive_read_set_passphrase_callback(arch_obj->archive, arch_obj,
+                                                 arch_passphrase_callback);
+        }
         int res = archive_read_open_fd(arch_obj->archive, fd, 10240);
         if (res != ARCHIVE_OK) {
             zend_throw_exception_ex(
@@ -316,6 +361,10 @@ static bool arch_obj_open_read_stream(arch_object *arch_obj)
 
     arch_obj->archive = archive_read_new();
     arch_obj_setup_support(arch_obj);
+    if (arch_obj->password_fci.size != 0) {
+        archive_read_set_passphrase_callback(arch_obj->archive, arch_obj,
+                                             arch_passphrase_callback);
+    }
     res = archive_read_open_FILE(arch_obj->archive, fp);
     if (res != ARCHIVE_OK) {
         zend_throw_exception_ex(
@@ -342,6 +391,31 @@ PHP_METHOD(libarchive_Archive, fromStream)
     arch_obj->source_kind = ARCH_SOURCE_STREAM;
     ZVAL_COPY(&arch_obj->source.stream_zv, stream_zv);
     arch_obj->write_disk_options = (int)flags;
+}
+
+PHP_METHOD(libarchive_Archive, withPasswordCallback)
+{
+    zend_fcall_info fci;
+    zend_fcall_info_cache fcc;
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+        Z_PARAM_FUNC(fci, fcc)
+    ZEND_PARSE_PARAMETERS_END();
+
+    arch_object *arch_obj = arch_object_from_zv(getThis());
+    if (arch_obj->archive != NULL) {
+        zend_throw_exception(except_ce,
+                "Cannot set password callback after archive has been opened", -1);
+        return;
+    }
+
+    Z_TRY_ADDREF(fci.function_name);
+    if (arch_obj->password_fci.size != 0) {
+        zval_ptr_dtor(&arch_obj->password_fci.function_name);
+    }
+    arch_obj->password_fci = fci;
+    arch_obj->password_fcc = fcc;
+
+    RETURN_THIS();
 }
 
 PHP_METHOD(libarchive_Archive, supportFormats)
