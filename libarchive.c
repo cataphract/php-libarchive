@@ -172,6 +172,11 @@ static zend_object *arch_ce_create_object(zend_class_entry *ce)
             emalloc(sizeof(*zobj) + zend_object_properties_size(ce));
 
     zobj->source_kind = ARCH_SOURCE_NONE;
+    zobj->write_disk_options = 0;
+    zobj->formats = NULL;
+    zobj->formats_count = 0;
+    zobj->filters = NULL;
+    zobj->filters_count = 0;
     zobj->archive = NULL;
     zobj->arch_disk = NULL;
     zobj->write_disk_options = 0;
@@ -196,6 +201,16 @@ static void arch_oh_free_obj(zend_object *zobj)
             break;
     }
     obj->source_kind = ARCH_SOURCE_NONE;
+    if (obj->formats) {
+        efree(obj->formats);
+        obj->formats = NULL;
+        obj->formats_count = 0;
+    }
+    if (obj->filters) {
+        efree(obj->filters);
+        obj->filters = NULL;
+        obj->filters_count = 0;
+    }
     if (obj->archive) {
         archive_read_close(obj->archive);
         obj->archive = NULL;
@@ -225,6 +240,24 @@ PHP_METHOD(libarchive_Archive, __construct)
 
 static bool arch_obj_open_read_stream(arch_object *arch_obj);
 
+static void arch_obj_setup_support(arch_object *arch_obj)
+{
+    if (arch_obj->filters == NULL) {
+        archive_read_support_filter_all(arch_obj->archive);
+    } else {
+        for (uint32_t i = 0; i < arch_obj->filters_count; i++) {
+            archive_read_support_filter_by_code(arch_obj->archive, arch_obj->filters[i]);
+        }
+    }
+    if (arch_obj->formats == NULL) {
+        archive_read_support_format_all(arch_obj->archive);
+    } else {
+        for (uint32_t i = 0; i < arch_obj->formats_count; i++) {
+            archive_read_support_format_by_code(arch_obj->archive, arch_obj->formats[i]);
+        }
+    }
+}
+
 static bool arch_obj_open_read(arch_object *arch_obj)
 {
     php_stream *stream = php_stream_open_wrapper(
@@ -243,8 +276,7 @@ static bool arch_obj_open_read(arch_object *arch_obj)
     if (php_stream_can_cast(stream, PHP_STREAM_AS_FD) == SUCCESS &&
             php_stream_cast(stream, PHP_STREAM_AS_FD, (void **)&fd, 0) == SUCCESS) {
         arch_obj->archive = archive_read_new();
-        archive_read_support_filter_all(arch_obj->archive);
-        archive_read_support_format_all(arch_obj->archive);
+        arch_obj_setup_support(arch_obj);
         int res = archive_read_open_fd(arch_obj->archive, fd, 10240);
         if (res != ARCHIVE_OK) {
             zend_throw_exception_ex(
@@ -283,8 +315,7 @@ static bool arch_obj_open_read_stream(arch_object *arch_obj)
     }
 
     arch_obj->archive = archive_read_new();
-    archive_read_support_filter_all(arch_obj->archive);
-    archive_read_support_format_all(arch_obj->archive);
+    arch_obj_setup_support(arch_obj);
     res = archive_read_open_FILE(arch_obj->archive, fp);
     if (res != ARCHIVE_OK) {
         zend_throw_exception_ex(
@@ -311,6 +342,52 @@ PHP_METHOD(libarchive_Archive, fromStream)
     arch_obj->source_kind = ARCH_SOURCE_STREAM;
     ZVAL_COPY(&arch_obj->source.stream_zv, stream_zv);
     arch_obj->write_disk_options = (int)flags;
+}
+
+PHP_METHOD(libarchive_Archive, supportFormats)
+{
+    zval *args;
+    uint32_t num_args;
+    ZEND_PARSE_PARAMETERS_START(1, -1)
+        Z_PARAM_VARIADIC('+', args, num_args)
+    ZEND_PARSE_PARAMETERS_END();
+
+    arch_object *arch_obj = arch_object_from_zv(getThis());
+    if (arch_obj->archive != NULL) {
+        zend_throw_exception(except_ce,
+                "Cannot change format after archive has been opened", -1);
+        return;
+    }
+    efree(arch_obj->formats);
+    arch_obj->formats = safe_emalloc(num_args, sizeof(int), 0);
+    arch_obj->formats_count = num_args;
+    for (uint32_t i = 0; i < num_args; i++) {
+        arch_obj->formats[i] = (int)Z_LVAL(args[i]);
+    }
+    RETURN_THIS();
+}
+
+PHP_METHOD(libarchive_Archive, supportFilters)
+{
+    zval *args;
+    uint32_t num_args;
+    ZEND_PARSE_PARAMETERS_START(1, -1)
+        Z_PARAM_VARIADIC('+', args, num_args)
+    ZEND_PARSE_PARAMETERS_END();
+
+    arch_object *arch_obj = arch_object_from_zv(getThis());
+    if (arch_obj->archive != NULL) {
+        zend_throw_exception(except_ce,
+                "Cannot change filter after archive has been opened", -1);
+        return;
+    }
+    efree(arch_obj->filters);
+    arch_obj->filters = safe_emalloc(num_args, sizeof(int), 0);
+    arch_obj->filters_count = num_args;
+    for (uint32_t i = 0; i < num_args; i++) {
+        arch_obj->filters[i] = (int)Z_LVAL(args[i]);
+    }
+    RETURN_THIS();
 }
 
 PHP_METHOD(libarchive_Archive, currentEntryStream)

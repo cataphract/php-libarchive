@@ -4,6 +4,68 @@
 
 namespace libarchive {
 
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_NONE */ const FILTER_NONE = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_GZIP */ const FILTER_GZIP = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_BZIP2 */ const FILTER_BZIP2 = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_COMPRESS */ const FILTER_COMPRESS = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_LZMA */ const FILTER_LZMA = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_XZ */ const FILTER_XZ = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_UU */ const FILTER_UU = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_RPM */ const FILTER_RPM = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_LZIP */ const FILTER_LZIP = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_LRZIP */ const FILTER_LRZIP = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_LZOP */ const FILTER_LZOP = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_GRZIP */ const FILTER_GRZIP = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_LZ4 */ const FILTER_LZ4 = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FILTER_ZSTD */ const FILTER_ZSTD = UNKNOWN;
+
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_CPIO */ const FORMAT_CPIO = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_SHAR */ const FORMAT_SHAR = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_TAR */ const FORMAT_TAR = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_ISO9660 */ const FORMAT_ISO9660 = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_ZIP */ const FORMAT_ZIP = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_EMPTY */ const FORMAT_EMPTY = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_AR */ const FORMAT_AR = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_MTREE */ const FORMAT_MTREE = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_RAW */ const FORMAT_RAW = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_XAR */ const FORMAT_XAR = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_LHA */ const FORMAT_LHA = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_CAB */ const FORMAT_CAB = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_RAR */ const FORMAT_RAR = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_7ZIP */ const FORMAT_7ZIP = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_WARC */ const FORMAT_WARC = UNKNOWN;
+    /** @var int
+     * @cvalue ARCHIVE_FORMAT_RAR_V5 */ const FORMAT_RAR_V5 = UNKNOWN;
+
     /**
      * Restore the user and group ownership of extracted entries.
      * Equivalent to the libarchive flag ARCHIVE_EXTRACT_OWNER.
@@ -300,6 +362,34 @@ namespace libarchive {
          *                          {@see Archive::extractCurrent()}.
          */
         public static function fromStream(mixed $stream, int $flags = 0): static {}
+
+        /**
+         * Restrict reading to specific archive formats.
+         *
+         * By default all formats are tried (auto-detect). Calling this method
+         * limits detection to the given format codes, replacing any previous
+         * call. Requires at least one argument.
+         *
+         * Must be called before iteration begins.
+         *
+         * @param int ...$formats  One or more FORMAT_* constants.
+         * @throws Exception       If the archive has already been opened.
+         */
+        public function supportFormats(int ...$formats): static {}
+
+        /**
+         * Restrict reading to a specific decompression filter.
+         *
+         * By default all filters are tried (auto-detect). Calling this method
+         * limits detection to the given filter codes, replacing any previous
+         * call. Requires at least one argument.
+         *
+         * Must be called before iteration begins.
+         *
+         * @param int ...$filters  One or more FILTER_* constants.
+         * @throws Exception       If the archive has already been opened.
+         */
+        public function supportFilters(int ...$filters): static {}
 
         /**
          * Extract the current archive entry to disk.

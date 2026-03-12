@@ -1,5 +1,9 @@
 #pragma once
 
+#if PHP_VERSION_ID < 80200
+#define RETURN_THIS() ZVAL_COPY(return_value, getThis()); return
+#endif
+
 #if PHP_VERSION_ID < 80400
 static inline zend_class_entry *php_libarchive_register_class_with_flags(
         zend_class_entry *ce, zend_class_entry *parent_ce, uint32_t flags)

@@ -47,6 +47,10 @@ typedef struct _arch_object {
     struct archive *nullable archive;
     struct archive *nullable arch_disk;
     int write_disk_options;
+    int *nullable formats; /* NULL = auto-detect all; emalloc'd array of ARCHIVE_FORMAT_* codes */
+    uint32_t formats_count;
+    int *nullable filters; /* NULL = auto-detect all; emalloc'd array of ARCHIVE_FILTER_* codes */
+    uint32_t filters_count;
     uint32_t entry_generation; /* incremented before each archive_read_next_header2 call */
     la_int64_t current_entry_size; /* archive_entry_size() of the current entry, or -1 if not set */
     zend_object parent;
