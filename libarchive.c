@@ -286,9 +286,13 @@ static void arch_obj_setup_support(arch_object *arch_obj)
     if (arch_obj->filters == NULL) {
         archive_read_support_filter_all(arch_obj->archive);
     } else {
+#if ARCHIVE_VERSION_NUMBER >= 3005000
         for (uint32_t i = 0; i < arch_obj->filters_count; i++) {
             archive_read_support_filter_by_code(arch_obj->archive, arch_obj->filters[i]);
         }
+#else
+        archive_read_support_filter_all(arch_obj->archive);
+#endif
     }
     if (arch_obj->formats == NULL) {
         archive_read_support_format_all(arch_obj->archive);
@@ -455,6 +459,11 @@ PHP_METHOD(libarchive_Archive, supportFilters)
                 "Cannot change filter after archive has been opened", -1);
         return;
     }
+#if ARCHIVE_VERSION_NUMBER < 3005000
+    php_error_docref(NULL, E_WARNING,
+            "supportFilters() requires libarchive >= 3.5.0; all filters will be enabled");
+    RETURN_THIS();
+#endif
     efree(arch_obj->filters);
     arch_obj->filters = safe_emalloc(num_args, sizeof(int), 0);
     arch_obj->filters_count = num_args;

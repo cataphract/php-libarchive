@@ -1,5 +1,10 @@
 --TEST--
 supportFormats() and supportFilters() restrict archive format and filter detection
+--SKIPIF--
+<?php
+if (!extension_loaded('archive')) die('skip archive extension not loaded');
+if (\libarchive\LIBARCHIVE_VERSION_ID < 3005000) die('skip requires libarchive >= 3.5.0');
+?>
 --FILE--
 <?php
 

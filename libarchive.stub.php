@@ -5,6 +5,9 @@
 namespace libarchive {
 
     /** @var int
+     * @cvalue ARCHIVE_VERSION_NUMBER */ const LIBARCHIVE_VERSION_ID = UNKNOWN;
+
+    /** @var int
      * @cvalue ARCHIVE_FILTER_NONE */ const FILTER_NONE = UNKNOWN;
     /** @var int
      * @cvalue ARCHIVE_FILTER_GZIP */ const FILTER_GZIP = UNKNOWN;

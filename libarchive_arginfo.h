@@ -73,6 +73,7 @@ static const zend_function_entry class_libarchive_Archive_methods[] = {
 
 static void register_libarchive_symbols(int module_number)
 {
+	REGISTER_LONG_CONSTANT("libarchive\\LIBARCHIVE_VERSION_ID", ARCHIVE_VERSION_NUMBER, CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("libarchive\\FILTER_NONE", ARCHIVE_FILTER_NONE, CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("libarchive\\FILTER_GZIP", ARCHIVE_FILTER_GZIP, CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("libarchive\\FILTER_BZIP2", ARCHIVE_FILTER_BZIP2, CONST_PERSISTENT);
