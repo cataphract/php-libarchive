@@ -215,7 +215,7 @@ static void arch_oh_free_obj(zend_object *zobj)
         obj->filters_count = 0;
     }
     if (obj->archive) {
-        archive_read_close(obj->archive);
+        archive_read_free(obj->archive);
         obj->archive = NULL;
     }
     if (obj->arch_disk) {

@@ -32,22 +32,30 @@ jobs:
           import yaml, json, os
           with open('.github/docker-image-shas.yml') as f:
               data = yaml.safe_load(f)
-          image = 'datadog/dd-appsec-php-ci'
+          image = 'ghcr.io/cataphract/php-minimal'
           includes = []
           for tag, sha in data[image].items():
-              # tag: "php-8.0-debug" or "php-8.0-release-zts"
-              ver, variant = tag[len('php-'):].split('-', 1)
-              includes.append({'php': ver, 'variant': variant, 'image_sha': sha})
+              # tag: "8.0-debug" or "8.0-release-zts"; skip non-test variants
+              ver, variant = tag.split('-', 1)
+              if variant not in ('debug', 'release-zts'):
+                  continue
+              includes.append({'php': ver, 'variant': variant, 'image_sha': sha,
+                                'libarchive_version': 'system'})
+          # Extra jobs testing specific libarchive versions (use PHP 8.4 debug)
+          sha_8_4_debug = data[image]['8.4-debug']
+          for la_ver in ['v3.5.0', 'v3.7.1', 'v3.8.6']:
+              includes.append({'php': '8.4', 'variant': 'debug', 'image_sha': sha_8_4_debug,
+                                'libarchive_version': la_ver})
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write('matrix=' + json.dumps({'include': includes}) + '\n')
           EOF
 
   linux:
-    name: PHP ${{ matrix.php }} (${{ matrix.variant }})
+    name: PHP ${{ matrix.php }} (${{ matrix.variant }}, libarchive ${{ matrix.libarchive_version }})
     needs: generate-matrix
     runs-on: ubuntu-latest
     container:
-      image: datadog/dd-appsec-php-ci@${{ matrix.image_sha }}
+      image: ghcr.io/cataphract/php-minimal@${{ matrix.image_sha }}
       options: --user root
     strategy:
       fail-fast: false
@@ -57,6 +65,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Restore libarchive cache
+        if: matrix.libarchive_version != 'system'
+        uses: actions/cache@v4
+        with:
+          path: .libarchive-cache
+          key: libarchive-${{ matrix.libarchive_version }}-${{ runner.arch }}
+
+      - name: Build and test
+        env:
+          LIBARCHIVE_VERSION: ${{ matrix.libarchive_version }}
+        run: bash .github/scripts/build-and-test.sh
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-php${{ matrix.php }}-${{ matrix.variant }}-libarchive${{ matrix.libarchive_version }}
+          path: report.xml
+
+  ubuntu:
+    name: ubuntu (PHP 8.3 release, ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PHP 8.3 and libarchive
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y php8.3 php8.3-dev libarchive-dev
+
       - name: Build and test
         run: bash .github/scripts/build-and-test.sh
 
@@ -64,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-php${{ matrix.php }}-${{ matrix.variant }}
+          name: test-results-ubuntu-php8.3-release-${{ matrix.arch }}
           path: report.xml
 
   windows:

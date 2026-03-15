@@ -1,6 +1,6 @@
 #pragma once
 
-#if PHP_VERSION_ID < 80400
+#ifndef RETURN_THIS
 #define RETURN_THIS() ZVAL_COPY(return_value, getThis()); return
 #endif
 
