@@ -251,6 +251,21 @@ namespace libarchive {
      */
     const EXTRACT_CLEAR_NOCHANGE_FFLAGS = UNKNOWN;
 
+    /** @var int
+     * @cvalue AE_IFREG */ const ENTRY_TYPE_FILE = UNKNOWN;
+    /** @var int
+     * @cvalue AE_IFDIR */ const ENTRY_TYPE_DIR = UNKNOWN;
+    /** @var int
+     * @cvalue AE_IFLNK */ const ENTRY_TYPE_SYMLINK = UNKNOWN;
+    /** @var int
+     * @cvalue AE_IFSOCK */ const ENTRY_TYPE_SOCKET = UNKNOWN;
+    /** @var int
+     * @cvalue AE_IFCHR */ const ENTRY_TYPE_CHAR = UNKNOWN;
+    /** @var int
+     * @cvalue AE_IFBLK */ const ENTRY_TYPE_BLOCK = UNKNOWN;
+    /** @var int
+     * @cvalue AE_IFIFO */ const ENTRY_TYPE_FIFO = UNKNOWN;
+
     /**
      * Exception thrown by the libarchive extension on any error.
      *
@@ -295,6 +310,52 @@ namespace libarchive {
      * @property int|null $ctime
      *   The last-status-change timestamp as a Unix epoch integer, or null
      *   if not set in the archive header.
+     *
+     * @property int $type
+     *   The file type as an ENTRY_TYPE_* constant (e.g. ENTRY_TYPE_FILE,
+     *   ENTRY_TYPE_DIR, ENTRY_TYPE_SYMLINK). Returns 0 if the type is
+     *   not set.
+     *
+     * @property bool $isFile
+     *   True if the entry is a regular file.
+     *
+     * @property bool $isDir
+     *   True if the entry is a directory.
+     *
+     * @property bool $isSymlink
+     *   True if the entry is a symbolic link.
+     *
+     * @property string|null $symlink
+     *   The symbolic link target path as a UTF-8 string, or null if this
+     *   entry is not a symlink or the target is not available.
+     *
+     * @property string|null $hardlink
+     *   The hard link target path as a UTF-8 string, or null if this
+     *   entry is not a hard link or the target is not available.
+     *
+     * @property int $uid
+     *   The numeric user ID of the entry owner.
+     *
+     * @property int $gid
+     *   The numeric group ID of the entry owner.
+     *
+     * @property string|null $uname
+     *   The user name of the entry owner, or null if not recorded.
+     *
+     * @property string|null $gname
+     *   The group name of the entry owner, or null if not recorded.
+     *
+     * @property int|null $atime
+     *   The last-access timestamp as a Unix epoch integer, or null if
+     *   not set in the archive header.
+     *
+     * @property int $rdev
+     *   The device number for block/character device entries. Returns 0
+     *   for non-device entries.
+     *
+     * @property bool $isEncrypted
+     *   True if the entry's data or metadata is encrypted. Always false
+     *   on libarchive < 3.2.0.
      */
     final class Entry
     {

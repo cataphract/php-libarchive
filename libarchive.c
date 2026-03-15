@@ -73,6 +73,134 @@ static void entry_oh_free_obj(zend_object *zobj)
     zend_object_std_dtor(zobj);
 }
 
+/* ── Compile-time DJBX33A hashes (matches zend_inline_hash_func) ──────── */
+#define _DJB_STEP(h, c) (((zend_ulong)(h) << 5) + (zend_ulong)(h) + (zend_ulong)(unsigned char)(c))
+#define _DJB_0         ((zend_ulong)5381)
+#define _DJB_1(a)                              _DJB_STEP(_DJB_0, a)
+#define _DJB_2(a,b)                            _DJB_STEP(_DJB_1(a), b)
+#define _DJB_3(a,b,c)                          _DJB_STEP(_DJB_2(a,b), c)
+#define _DJB_4(a,b,c,d)                        _DJB_STEP(_DJB_3(a,b,c), d)
+#define _DJB_5(a,b,c,d,e)                      _DJB_STEP(_DJB_4(a,b,c,d), e)
+#define _DJB_6(a,b,c,d,e,f)                    _DJB_STEP(_DJB_5(a,b,c,d,e), f)
+#define _DJB_7(a,b,c,d,e,f,g)                  _DJB_STEP(_DJB_6(a,b,c,d,e,f), g)
+#define _DJB_8(a,b,c,d,e,f,g,h)               _DJB_STEP(_DJB_7(a,b,c,d,e,f,g), h)
+#define _DJB_9(a,b,c,d,e,f,g,h,i)             _DJB_STEP(_DJB_8(a,b,c,d,e,f,g,h), i)
+#define _DJB_10(a,b,c,d,e,f,g,h,i,j)          _DJB_STEP(_DJB_9(a,b,c,d,e,f,g,h,i), j)
+#define _DJB_11(a,b,c,d,e,f,g,h,i,j,k)        _DJB_STEP(_DJB_10(a,b,c,d,e,f,g,h,i,j), k)
+#define _DJB_COUNT_(a,b,c,d,e,f,g,h,i,j,k,N,...) N
+#define _DJB_COUNT(...) _DJB_COUNT_(__VA_ARGS__,11,10,9,8,7,6,5,4,3,2,1)
+#define _DJB_PASTE(a,b) a##b
+#define _DJB_SEL(n)     _DJB_PASTE(_DJB_,n)
+/* zend_inline_hash_func sets the high bit of the result */
+#define DJB(...) (_DJB_SEL(_DJB_COUNT(__VA_ARGS__))(__VA_ARGS__) | ((zend_ulong)1 << (8 * sizeof(zend_ulong) - 1)))
+
+#define ENTRY_HASH_PATHNAME      DJB('p','a','t','h','n','a','m','e')
+#define ENTRY_HASH_SIZE          DJB('s','i','z','e')
+#define ENTRY_HASH_PERM          DJB('p','e','r','m')
+#define ENTRY_HASH_MTIME         DJB('m','t','i','m','e')
+#define ENTRY_HASH_CTIME         DJB('c','t','i','m','e')
+#define ENTRY_HASH_TYPE          DJB('t','y','p','e')
+#define ENTRY_HASH_IS_FILE       DJB('i','s','F','i','l','e')
+#define ENTRY_HASH_IS_DIR        DJB('i','s','D','i','r')
+#define ENTRY_HASH_IS_SYMLINK    DJB('i','s','S','y','m','l','i','n','k')
+#define ENTRY_HASH_SYMLINK       DJB('s','y','m','l','i','n','k')
+#define ENTRY_HASH_HARDLINK      DJB('h','a','r','d','l','i','n','k')
+#define ENTRY_HASH_UID           DJB('u','i','d')
+#define ENTRY_HASH_GID           DJB('g','i','d')
+#define ENTRY_HASH_UNAME         DJB('u','n','a','m','e')
+#define ENTRY_HASH_GNAME         DJB('g','n','a','m','e')
+#define ENTRY_HASH_ATIME         DJB('a','t','i','m','e')
+#define ENTRY_HASH_RDEV          DJB('r','d','e','v')
+#define ENTRY_HASH_IS_ENCRYPTED  DJB('i','s','E','n','c','r','y','p','t','e','d')
+
+/* ── Per-property accessors ──────────────────────────────────────────────── */
+static inline void entry_prop_pathname(struct archive_entry *entry, zval *rv)
+{
+    const char *s = archive_entry_pathname_utf8(entry);
+    if (!s) ZVAL_NULL(rv); else ZVAL_STRING(rv, s);
+}
+static inline void entry_prop_size(struct archive_entry *entry, zval *rv)
+{
+    if (!archive_entry_size_is_set(entry)) ZVAL_NULL(rv);
+    else ZVAL_LONG(rv, archive_entry_size(entry));
+}
+static inline void entry_prop_perm(struct archive_entry *entry, zval *rv)
+{
+    ZVAL_LONG(rv, archive_entry_perm(entry));
+}
+static inline void entry_prop_mtime(struct archive_entry *entry, zval *rv)
+{
+    if (!archive_entry_mtime_is_set(entry)) ZVAL_NULL(rv);
+    else ZVAL_LONG(rv, archive_entry_mtime(entry));
+}
+static inline void entry_prop_ctime(struct archive_entry *entry, zval *rv)
+{
+    if (!archive_entry_ctime_is_set(entry)) ZVAL_NULL(rv);
+    else ZVAL_LONG(rv, archive_entry_ctime(entry));
+}
+static inline void entry_prop_atime(struct archive_entry *entry, zval *rv)
+{
+    if (!archive_entry_atime_is_set(entry)) ZVAL_NULL(rv);
+    else ZVAL_LONG(rv, archive_entry_atime(entry));
+}
+static inline void entry_prop_type(struct archive_entry *entry, zval *rv)
+{
+    ZVAL_LONG(rv, archive_entry_filetype(entry));
+}
+static inline void entry_prop_is_file(struct archive_entry *entry, zval *rv)
+{
+    ZVAL_BOOL(rv, archive_entry_filetype(entry) == AE_IFREG);
+}
+static inline void entry_prop_is_dir(struct archive_entry *entry, zval *rv)
+{
+    ZVAL_BOOL(rv, archive_entry_filetype(entry) == AE_IFDIR);
+}
+static inline void entry_prop_is_symlink(struct archive_entry *entry, zval *rv)
+{
+    ZVAL_BOOL(rv, archive_entry_filetype(entry) == AE_IFLNK);
+}
+static inline void entry_prop_symlink(struct archive_entry *entry, zval *rv)
+{
+    const char *s = archive_entry_symlink_utf8(entry);
+    if (!s) ZVAL_NULL(rv); else ZVAL_STRING(rv, s);
+}
+static inline void entry_prop_hardlink(struct archive_entry *entry, zval *rv)
+{
+    const char *s = archive_entry_hardlink_utf8(entry);
+    if (!s) ZVAL_NULL(rv); else ZVAL_STRING(rv, s);
+}
+static inline void entry_prop_uid(struct archive_entry *entry, zval *rv)
+{
+    ZVAL_LONG(rv, archive_entry_uid(entry));
+}
+static inline void entry_prop_gid(struct archive_entry *entry, zval *rv)
+{
+    ZVAL_LONG(rv, archive_entry_gid(entry));
+}
+static inline void entry_prop_uname(struct archive_entry *entry, zval *rv)
+{
+    const char *s = archive_entry_uname_utf8(entry);
+    if (!s) ZVAL_NULL(rv); else ZVAL_STRING(rv, s);
+}
+static inline void entry_prop_gname(struct archive_entry *entry, zval *rv)
+{
+    const char *s = archive_entry_gname_utf8(entry);
+    if (!s) ZVAL_NULL(rv); else ZVAL_STRING(rv, s);
+}
+static inline void entry_prop_rdev(struct archive_entry *entry, zval *rv)
+{
+    ZVAL_LONG(rv, archive_entry_rdev(entry));
+}
+static inline void entry_prop_is_encrypted(struct archive_entry *entry, zval *rv)
+{
+#if ARCHIVE_VERSION_NUMBER >= 3002000
+    ZVAL_BOOL(rv, archive_entry_is_data_encrypted(entry)
+                  || archive_entry_is_metadata_encrypted(entry));
+#else
+    ZVAL_FALSE(rv);
+#endif
+}
+
 static zval *entry_oh_read_property(zend_object *object, zend_string *member,
                                     int type, void **cache_slot, zval *rv)
 {
@@ -84,41 +212,152 @@ static zval *entry_oh_read_property(zend_object *object, zend_string *member,
         return rv;
     }
 
-    if (zend_string_equals_literal(member, "pathname")) {
-        const char *pathname = archive_entry_pathname_utf8(entry);
-        if (!pathname) {
-            ZVAL_NULL(rv);
-        } else {
-            ZVAL_STRING(rv, pathname);
-        }
-        return rv;
-    } else if (zend_string_equals_literal(member, "size")) {
-        if (!archive_entry_size_is_set(entry)) {
-            ZVAL_NULL(rv);
-        } else {
-            ZVAL_LONG(rv, archive_entry_size(entry));
-        }
-        return rv;
-    } else if (zend_string_equals_literal(member, "perm")) {
-        ZVAL_LONG(rv, archive_entry_perm(entry));
-        return rv;
-    } else if (zend_string_equals_literal(member, "mtime")) {
-        if (!archive_entry_mtime_is_set(entry)) {
-            ZVAL_NULL(rv);
-        } else {
-            ZVAL_LONG(rv, archive_entry_mtime(entry));
-        }
-        return rv;
-    } else if (zend_string_equals_literal(member, "ctime")) {
-        if (!archive_entry_ctime_is_set(entry)) {
-            ZVAL_NULL(rv);
-        } else {
-            ZVAL_LONG(rv, archive_entry_ctime(entry));
-        }
-        return rv;
-    } else {
-        return &EG(uninitialized_zval);
+    switch (zend_string_hash_val(member)) {
+    case ENTRY_HASH_PATHNAME:
+        if (!zend_string_equals_literal(member, "pathname")) break;
+        entry_prop_pathname(entry, rv); return rv;
+    case ENTRY_HASH_SIZE:
+        if (!zend_string_equals_literal(member, "size")) break;
+        entry_prop_size(entry, rv); return rv;
+    case ENTRY_HASH_PERM:
+        if (!zend_string_equals_literal(member, "perm")) break;
+        entry_prop_perm(entry, rv); return rv;
+    case ENTRY_HASH_MTIME:
+        if (!zend_string_equals_literal(member, "mtime")) break;
+        entry_prop_mtime(entry, rv); return rv;
+    case ENTRY_HASH_CTIME:
+        if (!zend_string_equals_literal(member, "ctime")) break;
+        entry_prop_ctime(entry, rv); return rv;
+    case ENTRY_HASH_TYPE:
+        if (!zend_string_equals_literal(member, "type")) break;
+        entry_prop_type(entry, rv); return rv;
+    case ENTRY_HASH_IS_FILE:
+        if (!zend_string_equals_literal(member, "isFile")) break;
+        entry_prop_is_file(entry, rv); return rv;
+    case ENTRY_HASH_IS_DIR:
+        if (!zend_string_equals_literal(member, "isDir")) break;
+        entry_prop_is_dir(entry, rv); return rv;
+    case ENTRY_HASH_IS_SYMLINK:
+        if (!zend_string_equals_literal(member, "isSymlink")) break;
+        entry_prop_is_symlink(entry, rv); return rv;
+    case ENTRY_HASH_SYMLINK:
+        if (!zend_string_equals_literal(member, "symlink")) break;
+        entry_prop_symlink(entry, rv); return rv;
+    case ENTRY_HASH_HARDLINK:
+        if (!zend_string_equals_literal(member, "hardlink")) break;
+        entry_prop_hardlink(entry, rv); return rv;
+    case ENTRY_HASH_UID:
+        if (!zend_string_equals_literal(member, "uid")) break;
+        entry_prop_uid(entry, rv); return rv;
+    case ENTRY_HASH_GID:
+        if (!zend_string_equals_literal(member, "gid")) break;
+        entry_prop_gid(entry, rv); return rv;
+    case ENTRY_HASH_UNAME:
+        if (!zend_string_equals_literal(member, "uname")) break;
+        entry_prop_uname(entry, rv); return rv;
+    case ENTRY_HASH_GNAME:
+        if (!zend_string_equals_literal(member, "gname")) break;
+        entry_prop_gname(entry, rv); return rv;
+    case ENTRY_HASH_ATIME:
+        if (!zend_string_equals_literal(member, "atime")) break;
+        entry_prop_atime(entry, rv); return rv;
+    case ENTRY_HASH_RDEV:
+        if (!zend_string_equals_literal(member, "rdev")) break;
+        entry_prop_rdev(entry, rv); return rv;
+    case ENTRY_HASH_IS_ENCRYPTED:
+        if (!zend_string_equals_literal(member, "isEncrypted")) break;
+        entry_prop_is_encrypted(entry, rv); return rv;
     }
+
+    return &EG(uninitialized_zval);
+}
+static zend_array *entry_oh_get_properties_for(zend_object *object, zend_prop_purpose purpose)
+{
+    entry_object *entry_obj = entry_object_fetch(object);
+    struct archive_entry *entry = entry_obj->entry;
+
+    zend_array *props = zend_new_array(18);
+
+    if (entry == NULL) {
+        return props;
+    }
+
+    zval tmp;
+#define ADD(key, fn) \
+    fn(entry, &tmp); \
+    zend_hash_str_add_new(props, key, sizeof(key) - 1, &tmp);
+
+    ADD("pathname",    entry_prop_pathname)
+    ADD("size",        entry_prop_size)
+    ADD("perm",        entry_prop_perm)
+    ADD("mtime",       entry_prop_mtime)
+    ADD("ctime",       entry_prop_ctime)
+    ADD("atime",       entry_prop_atime)
+    ADD("type",        entry_prop_type)
+    ADD("isFile",      entry_prop_is_file)
+    ADD("isDir",       entry_prop_is_dir)
+    ADD("isSymlink",   entry_prop_is_symlink)
+    ADD("symlink",     entry_prop_symlink)
+    ADD("hardlink",    entry_prop_hardlink)
+    ADD("uid",         entry_prop_uid)
+    ADD("gid",         entry_prop_gid)
+    ADD("uname",       entry_prop_uname)
+    ADD("gname",       entry_prop_gname)
+    ADD("rdev",        entry_prop_rdev)
+    ADD("isEncrypted", entry_prop_is_encrypted)
+
+#undef ADD
+
+    return props;
+}
+static int entry_oh_has_property(zend_object *object, zend_string *member,
+                                 int has_set_exists, void **cache_slot)
+{
+    entry_object *entry_obj = entry_object_fetch(object);
+    struct archive_entry *entry = entry_obj->entry;
+
+    if (entry == NULL) {
+        return 0;
+    }
+
+    bool known;
+    switch (zend_string_hash_val(member)) {
+    case ENTRY_HASH_PATHNAME:     known = zend_string_equals_literal(member, "pathname");    break;
+    case ENTRY_HASH_SIZE:         known = zend_string_equals_literal(member, "size");        break;
+    case ENTRY_HASH_PERM:         known = zend_string_equals_literal(member, "perm");        break;
+    case ENTRY_HASH_MTIME:        known = zend_string_equals_literal(member, "mtime");       break;
+    case ENTRY_HASH_CTIME:        known = zend_string_equals_literal(member, "ctime");       break;
+    case ENTRY_HASH_TYPE:         known = zend_string_equals_literal(member, "type");        break;
+    case ENTRY_HASH_IS_FILE:      known = zend_string_equals_literal(member, "isFile");      break;
+    case ENTRY_HASH_IS_DIR:       known = zend_string_equals_literal(member, "isDir");       break;
+    case ENTRY_HASH_IS_SYMLINK:   known = zend_string_equals_literal(member, "isSymlink");   break;
+    case ENTRY_HASH_SYMLINK:      known = zend_string_equals_literal(member, "symlink");     break;
+    case ENTRY_HASH_HARDLINK:     known = zend_string_equals_literal(member, "hardlink");    break;
+    case ENTRY_HASH_UID:          known = zend_string_equals_literal(member, "uid");         break;
+    case ENTRY_HASH_GID:          known = zend_string_equals_literal(member, "gid");         break;
+    case ENTRY_HASH_UNAME:        known = zend_string_equals_literal(member, "uname");       break;
+    case ENTRY_HASH_GNAME:        known = zend_string_equals_literal(member, "gname");       break;
+    case ENTRY_HASH_ATIME:        known = zend_string_equals_literal(member, "atime");       break;
+    case ENTRY_HASH_RDEV:         known = zend_string_equals_literal(member, "rdev");        break;
+    case ENTRY_HASH_IS_ENCRYPTED: known = zend_string_equals_literal(member, "isEncrypted"); break;
+    default:                      known = false; break;
+    }
+
+    if (!known) {
+        return 0;
+    }
+
+    if (has_set_exists == ZEND_PROPERTY_EXISTS) {
+        return 1;
+    }
+
+    zval tmp;
+    zval *val = entry_oh_read_property(object, member, BP_VAR_IS, cache_slot, &tmp);
+    int result = (has_set_exists == ZEND_PROPERTY_ISSET)
+        ? Z_TYPE_P(val) != IS_NULL
+        : zend_is_true(val);
+    zval_ptr_dtor(&tmp);
+    return result;
 }
 static zval *entry_oh_get_property_ptr_ptr(zend_object *object,
                                            zend_string *member, int type,
@@ -136,7 +375,8 @@ static zval *entry_oh_write_property(zend_object *object, zend_string *member,
         zend_throw_exception(except_ce, "Entry not initialized", -1);
         return value;
     }
-    if (zend_string_equals_literal(member, "pathname")) {
+    if (zend_string_hash_val(member) == ENTRY_HASH_PATHNAME
+            && zend_string_equals_literal(member, "pathname")) {
         zend_string *val = zval_get_string(value);
         /* Versions of libarchive before
          * https://github.com/libarchive/libarchive/commit/d6248d2640efe3e40a1a9c0bb7bd8903f6beef98
@@ -763,8 +1003,10 @@ static PHP_MINIT_FUNCTION(libarchive)
     // initialize libarchive\Entry
     entry_oh = *zend_get_std_object_handlers();
     entry_oh.read_property = entry_oh_read_property;
+    entry_oh.has_property = entry_oh_has_property;
     entry_oh.get_property_ptr_ptr = entry_oh_get_property_ptr_ptr;
     entry_oh.write_property = entry_oh_write_property;
+    entry_oh.get_properties_for = entry_oh_get_properties_for;
     entry_oh.clone_obj = NULL;
     entry_oh.free_obj = entry_oh_free_obj;
     entry_oh.offset = XtOffsetOf(entry_object, parent);
