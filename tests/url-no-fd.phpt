@@ -6,6 +6,7 @@ Constructor falls back to FILE* for stream wrappers that cannot be cast to a fil
 /* A stream wrapper that delegates reads/seeks to a real file but never
  * exposes a file descriptor (no stream_cast method). */
 class NoFdWrapper {
+    public $context;
     private $fp;
 
     public function stream_open(string $path, string $mode,
