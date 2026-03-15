@@ -42,3 +42,4 @@ config.h.in~
 /report.xml
 /configure~
 /.cache
+/PHP-Parser-5.0.0/

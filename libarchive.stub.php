@@ -394,7 +394,7 @@ namespace libarchive {
          * @param int ...$formats  One or more FORMAT_* constants.
          * @throws Exception       If the archive has already been opened.
          */
-        public function supportFormats(int ...$formats): static {}
+        public function supportFormats(int $format, int ...$formats): static {}
 
         /**
          * Restrict reading to a specific decompression filter.
@@ -408,7 +408,7 @@ namespace libarchive {
          * @param int ...$filters  One or more FILTER_* constants.
          * @throws Exception       If the archive has already been opened.
          */
-        public function supportFilters(int ...$filters): static {}
+        public function supportFilters(int $filter, int ...$filters): static {}
 
         /**
          * Extract the current archive entry to disk.

@@ -39,7 +39,7 @@ format:
 
 # Regenerate libarchive_arginfo.h from libarchive.stub.php
 gen-arginfo:
-    php "$(php-config --prefix)/lib/php/build/gen_stub.php" libarchive.stub.php
+    php gen_stub.php libarchive.stub.php
 
 # ── Individual targets ────────────────────────────────────────────────────────
 

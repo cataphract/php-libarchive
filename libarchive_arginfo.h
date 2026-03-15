@@ -19,10 +19,12 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_libarchive_Archive_withPas
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_libarchive_Archive_supportFormats, 0, 1, IS_STATIC, 0)
+	ZEND_ARG_TYPE_INFO(0, format, IS_LONG, 0)
 	ZEND_ARG_VARIADIC_TYPE_INFO(0, formats, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_libarchive_Archive_supportFilters, 0, 1, IS_STATIC, 0)
+	ZEND_ARG_TYPE_INFO(0, filter, IS_LONG, 0)
 	ZEND_ARG_VARIADIC_TYPE_INFO(0, filters, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
