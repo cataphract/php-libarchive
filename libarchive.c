@@ -957,7 +957,7 @@ static void arch_it_dtor(zend_object_iterator *iter)
     zval_ptr_dtor(&it->parent.data); // reduce refcount on archive
     it->finished = true;
 }
-static zend_result arch_it_valid(zend_object_iterator *iter)
+static int arch_it_valid(zend_object_iterator *iter)
 {
     arch_iterator *it = (arch_iterator *)iter;
     if (Z_ISUNDEF(it->value) && !it->finished) {

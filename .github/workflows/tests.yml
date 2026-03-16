@@ -70,7 +70,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .libarchive-cache
-          key: libarchive-${{ matrix.libarchive_version }}-${{ runner.arch }}
+          key: libarchive-${{ matrix.libarchive_version }}-${{ runner.arch }}-v2
 
       - name: Build and test
         env:

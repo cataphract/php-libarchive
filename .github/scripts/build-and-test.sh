@@ -32,19 +32,19 @@ else
 
     if [ ! -f "${LA_PREFIX}/lib/libarchive.so" ] && [ ! -f "${LA_PREFIX}/lib/libarchive.a" ]; then
         if command -v apk >/dev/null 2>&1; then
-            apk add --no-cache build-base curl zlib-dev bzip2-dev xz-dev zstd-dev lz4-dev openssl-dev
+            apk add --no-cache build-base curl zlib-dev bzip2-dev xz-dev zstd-dev lz4-dev openssl-dev expat-dev
         else
             _sudo=""
             [ "$(id -u)" != "0" ] && _sudo="sudo"
             $_sudo apt-get update -qq
-            $_sudo apt-get install -y -qq build-essential curl zlib1g-dev libbz2-dev liblzma-dev libzstd-dev liblz4-dev libssl-dev
+            $_sudo apt-get install -y -qq build-essential curl zlib1g-dev libbz2-dev liblzma-dev libzstd-dev liblz4-dev libssl-dev libexpat1-dev
         fi
 
         BUILD_DIR="$(mktemp -d)"
         curl -fsSL "https://github.com/libarchive/libarchive/releases/download/${LIBARCHIVE_VERSION}/libarchive-${LA_VERSION_NUM}.tar.gz" \
             | tar xz -C "$BUILD_DIR"
         cd "${BUILD_DIR}/libarchive-${LA_VERSION_NUM}"
-        ./configure --prefix="${LA_PREFIX}" --disable-bsdtar --disable-bsdcat --disable-bsdcpio --disable-bsdunzip --without-xml2 --without-expat
+        ./configure --prefix="${LA_PREFIX}" --disable-bsdtar --disable-bsdcat --disable-bsdcpio --disable-bsdunzip --without-xml2 --with-expat
         make -j"$(nproc)"
         make install
         cd -
