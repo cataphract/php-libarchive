@@ -6,7 +6,7 @@
 
 /* libarchive extension for PHP */
 
-#define PHP_LIBARCHIVE_VERSION "0.2.0"
+#define PHP_LIBARCHIVE_VERSION "0.3.0-dev"
 
 #if defined(ZTS) && defined(COMPILE_DL_LIBARCHIVE)
 ZEND_TSRMLS_CACHE_EXTERN()
