@@ -7,7 +7,7 @@ if (PHP_LIBARCHIVE != "no") {
 		CHECK_HEADER_ADD_INCLUDE("archive.h", "CFLAGS_ARCHIVE",
 			PHP_LIBARCHIVE + "/include;" + PHP_PHP_BUILD + "/include")) {
 
-		EXTENSION("archive", "libarchive.c stream.c", true, "/DLIBARCHIVE_STATIC");
+		EXTENSION("archive", "libarchive.c stream.c stream_callbacks.c", true, "/DLIBARCHIVE_STATIC /Zc:preprocessor");
 
 		// Always-needed Windows system libs.
 		var libs = "bcrypt.lib xmllite.lib crypt32.lib ws2_32.lib";

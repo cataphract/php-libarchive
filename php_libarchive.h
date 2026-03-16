@@ -32,17 +32,39 @@ ZEND_TSRMLS_CACHE_EXTERN()
 #define nullable _Nullable
 #define unspecnull _Null_unspecified
 
+/* On Windows, where fopencookie and similar is unavailable, the callback path
+ * is always available; on other platforms it is enabled when the extension was
+ * built with --with-libarchive-read-callbacks. */
+#if defined(PHP_WIN32) && !defined(HAVE_LIBARCHIVE_STREAM_CALLBACKS)
+#define HAVE_LIBARCHIVE_STREAM_CALLBACKS 1
+#endif
+
 typedef enum {
     ARCH_SOURCE_NONE,
     ARCH_SOURCE_FILE,
+#ifndef HAVE_LIBARCHIVE_STREAM_CALLBACKS
     ARCH_SOURCE_STREAM,
+#else
+    ARCH_SOURCE_STREAM_CB,
+#endif
 } arch_source_kind;
+
+#ifdef HAVE_LIBARCHIVE_STREAM_CALLBACKS
+typedef struct {
+    zval stream_zv;
+    char buf[65536];
+} arch_stream_cb;
+#endif
 
 typedef struct _arch_object {
     arch_source_kind source_kind;
     union {
-        zend_string *file_location; /* ARCH_SOURCE_FILE */
-        zval stream_zv;             /* ARCH_SOURCE_STREAM */
+        zend_string    *file_location; /* ARCH_SOURCE_FILE */
+#ifndef HAVE_LIBARCHIVE_STREAM_CALLBACKS
+        zval            stream_zv;     /* ARCH_SOURCE_STREAM */
+#else
+        arch_stream_cb *stream_cb;     /* ARCH_SOURCE_STREAM_CB */
+#endif
     } source;
     struct archive *nullable archive;
     struct archive *nullable arch_disk;

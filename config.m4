@@ -3,6 +3,12 @@ PHP_ARG_WITH([libarchive],
   [AS_HELP_STRING([[--with-libarchive[=DIR]]],
     [Include libarchive support])])
 
+PHP_ARG_WITH([libarchive-read-callbacks],
+  [whether to use stream read callbacks],
+  [AS_HELP_STRING([[--with-libarchive-read-callbacks]],
+    [Use libarchive read callbacks instead of FILE* for stream sources (required on platforms without fopencookie)])],
+  [no], [no])
+
 if test "$PHP_LIBARCHIVE" != "no"; then
   if test -r $PHP_LIBARCHIVE/include/archive.h; then
     LIBARCHIVE_DIR=$PHP_LIBARCHIVE
@@ -53,6 +59,13 @@ if test "$PHP_LIBARCHIVE" != "no"; then
 
   extra_cflags="-Wall $cflags_null -fvisibility=hidden"
 
+  ext_sources="libarchive.c stream.c"
+  if test "$PHP_LIBARCHIVE_READ_CALLBACKS" != "no"; then
+    AC_DEFINE(HAVE_LIBARCHIVE_STREAM_CALLBACKS, 1,
+              [Use stream read callbacks for archive sources])
+    ext_sources="$ext_sources stream_callbacks.c"
+  fi
+
   PHP_SUBST(ARCHIVE_SHARED_LIBADD)
-  PHP_NEW_EXTENSION(archive, libarchive.c stream.c, $ext_shared,,$extra_cflags)
+  PHP_NEW_EXTENSION(archive, $ext_sources, $ext_shared,,$extra_cflags)
 fi

@@ -437,9 +437,20 @@ static void arch_oh_free_obj(zend_object *zobj)
         case ARCH_SOURCE_FILE:
             zend_string_release(obj->source.file_location);
             break;
+#ifndef HAVE_LIBARCHIVE_STREAM_CALLBACKS
         case ARCH_SOURCE_STREAM:
             zval_ptr_dtor(&obj->source.stream_zv);
             break;
+#else
+        case ARCH_SOURCE_STREAM_CB:
+            if (obj->archive == NULL) {
+                /* Archive never opened; stream_close_cb won't fire. */
+                zval_ptr_dtor(&obj->source.stream_cb->stream_zv);
+                efree(obj->source.stream_cb);
+            }
+            /* else: archive_read_free below triggers stream_close_cb. */
+            break;
+#endif
         case ARCH_SOURCE_NONE:
             break;
     }
@@ -579,27 +590,35 @@ static bool arch_obj_open_read(arch_object *arch_obj)
          * Switch the source so arch_obj_open_read_stream can take over and
          * the stream resource is kept alive for the lifetime of the archive. */
         zend_string_release(arch_obj->source.file_location);
+#ifdef HAVE_LIBARCHIVE_STREAM_CALLBACKS
+        arch_stream_cb *d = emalloc(sizeof *d);
+        php_stream_to_zval(stream, &d->stream_zv); /* transfer the only ref */
+        arch_obj->source.stream_cb = d;
+        arch_obj->source_kind = ARCH_SOURCE_STREAM_CB;
+#else
         arch_obj->source_kind = ARCH_SOURCE_STREAM;
         php_stream_to_zval(stream, &arch_obj->source.stream_zv);
+#endif
         return arch_obj_open_read_stream(arch_obj);
     }
 
     return true;
 }
 
+#ifdef HAVE_LIBARCHIVE_STREAM_CALLBACKS
+extern bool arch_open_archive_with_stream_callbacks(arch_object *arch_obj);
+#endif
+
 static bool arch_obj_open_read_stream(arch_object *arch_obj)
 {
     php_stream *stream;
+#ifdef HAVE_LIBARCHIVE_STREAM_CALLBACKS
+    php_stream_from_zval_no_verify(stream, &arch_obj->source.stream_cb->stream_zv);
+#else
     php_stream_from_zval_no_verify(stream, &arch_obj->source.stream_zv);
+#endif
     if (!stream) {
         zend_throw_exception(except_ce, "Invalid stream resource", -1);
-        return false;
-    }
-
-    FILE *fp;
-    int res = php_stream_cast(stream, PHP_STREAM_AS_STDIO, (void **)&fp, REPORT_ERRORS);
-    if (res != SUCCESS) {
-        zend_throw_exception(except_ce, "Could not cast stream to FILE*", -1);
         return false;
     }
 
@@ -609,6 +628,25 @@ static bool arch_obj_open_read_stream(arch_object *arch_obj)
         archive_read_set_passphrase_callback(arch_obj->archive, arch_obj,
                                              arch_passphrase_callback);
     }
+
+#ifdef HAVE_LIBARCHIVE_STREAM_CALLBACKS
+    if (!arch_open_archive_with_stream_callbacks(arch_obj)) {
+        zend_throw_exception_ex(
+                except_ce, archive_errno(arch_obj->archive),
+                "Could not open archive from stream: %s",
+                archive_error_string(arch_obj->archive));
+        return false;
+    }
+    return true;
+#else
+    FILE *fp;
+    int res = php_stream_cast(stream, PHP_STREAM_AS_STDIO, (void **)&fp,
+                              REPORT_ERRORS);
+    if (res != SUCCESS) {
+        zend_throw_exception(except_ce, "Could not cast stream to FILE*", -1);
+        return false;
+    }
+
     res = archive_read_open_FILE(arch_obj->archive, fp);
     if (res != ARCHIVE_OK) {
         zend_throw_exception_ex(
@@ -617,8 +655,8 @@ static bool arch_obj_open_read_stream(arch_object *arch_obj)
                 archive_error_string(arch_obj->archive));
         return false;
     }
-
     return true;
+#endif
 }
 
 PHP_METHOD(libarchive_Archive, fromStream)
@@ -632,8 +670,15 @@ PHP_METHOD(libarchive_Archive, fromStream)
 
     object_init_ex(return_value, arch_ce);
     arch_object *arch_obj = arch_object_from_zv(return_value);
+#ifdef HAVE_LIBARCHIVE_STREAM_CALLBACKS
+    arch_stream_cb *d = emalloc(sizeof *d);
+    ZVAL_COPY(&d->stream_zv, stream_zv);
+    arch_obj->source.stream_cb = d;
+    arch_obj->source_kind = ARCH_SOURCE_STREAM_CB;
+#else
     arch_obj->source_kind = ARCH_SOURCE_STREAM;
     ZVAL_COPY(&arch_obj->source.stream_zv, stream_zv);
+#endif
     arch_obj->write_disk_options = (int)flags;
 }
 

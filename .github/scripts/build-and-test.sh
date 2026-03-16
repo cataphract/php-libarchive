@@ -67,7 +67,7 @@ find . -name '*.lo' -o -name '*.o' | xargs rm -f 2>/dev/null || true
 find . -name '.libs' -type d | xargs rm -rf 2>/dev/null || true
 
 phpize
-./configure --with-php-config="$(which php-config)" "$CONFIGURE_LIBARCHIVE"
+./configure --with-php-config="$(which php-config)" "$CONFIGURE_LIBARCHIVE" ${EXTRA_CONFIGURE_FLAGS:-}
 make -f Makefile -j"$(nproc)"
 
 # ── Test ──────────────────────────────────────────────────────────────────────
